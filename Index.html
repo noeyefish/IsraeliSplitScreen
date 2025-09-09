@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>מסכי סטרים חיים</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+      position: relative;
+    }
+    #grid {
+      display: grid;
+      gap: 4px;
+      padding: 4px;
+      box-sizing: border-box;
+      width: 100%;
+      height: calc(100% - 50px);
+    }
+    .video-container {
+      position: relative;
+      background: #000;
+      overflow: hidden;
+    }
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      background: #000;
+    }
+    .overlay {
+      position: absolute;
+      bottom: 8px;
+      left: 8px;
+      background: rgba(0, 0, 0, 0.6);
+      color: #fff;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.9em;
+      pointer-events: none;
+    }
+    .remove-btn {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      background: rgba(255, 0, 0, 0.8);
+      border: none;
+      color: #fff;
+      width: 24px;
+      height: 24px;
+      border-radius: 12px;
+      font-size: 16px;
+      line-height: 22px;
+      cursor: pointer;
+      z-index: 5;
+    }
+    /* Add Button */
+    #addBtn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: #00aaff;
+      border: none;
+      color: #fff;
+      padding: 8px 12px;
+      font-size: 1em;
+      border-radius: 4px;
+      cursor: pointer;
+      z-index: 10;
+    }
+    /* Side Panel */
+    #panel {
+      position: absolute;
+      top: 0;
+      right: -300px;
+      width: 300px;
+      height: 100%;
+      background: #1a1a1a;
+      box-shadow: -2px 0 6px rgba(0,0,0,0.5);
+      transition: right 0.3s ease;
+      padding: 16px;
+      box-sizing: border-box;
+      overflow-y: auto;
+      z-index: 9;
+    }
+    #panel.open {
+      right: 0;
+    }
+    .channel-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+      padding: 6px;
+      background: #2a2a2c;
+      border-radius: 6px;
+    }
+    .channel-item img {
+      width: 40px;
+      height: 40px;
+      object-fit: contain;
+      margin-right: 8px;
+    }
+    .channel-item span {
+      flex: 1;
+      color: #fff;
+    }
+    .add-channel-btn {
+      background: #00ff66;
+      border: none;
+      color: #000;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    /* Popup Notification */
+    .popup {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.8);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 1em;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+      z-index: 20;
+    }
+  </style>
+</head>
+<body>
+  <button id="addBtn">+ הוסף ערוץ</button>
+  <div id="grid"></div>
+  <div id="panel"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <script>
+    const PRIMARY_URL = 'https://raw.githubusercontent.com/RokuIL/Live-From-Israel/refs/heads/master/Channels.json';
+    const FALLBACK_URL = 'https://raw.githubusercontent.com/noeyefish/test/refs/heads/main/channels.json';
+
+    let allChannels = [];
+    let activeTitles = [];
+
+    // Load from storage or default
+    const stored = localStorage.getItem('activeTitles');
+    if (stored) {
+      try { activeTitles = JSON.parse(stored); } catch { activeTitles = ['כאן 11', 'קשת 12', 'רשת 13', 'ערוץ 14']; }
+    } else {
+      activeTitles = ['כאן 11', 'קשת 12', 'רשת 13', 'ערוץ 14'];
+    }
+
+    function saveActive() {
+      localStorage.setItem('activeTitles', JSON.stringify(activeTitles));
+    }
+
+    function loadJSON(url) {
+      return fetch(url)
+        .then(r => { if (!r.ok) throw ''; return r.json(); });
+    }
+
+    Promise.resolve()
+      .then(() => loadJSON(PRIMARY_URL))
+      .catch(() => loadJSON(FALLBACK_URL))
+      .then(data => {
+        allChannels = data.Channels;
+        renderGrid();
+        renderPanel();
+      });
+
+    function renderGrid() {
+      const grid = document.getElementById('grid');
+      const n = activeTitles.length;
+      const cols = Math.ceil(Math.sqrt(n));
+      const rows = Math.ceil(n / cols);
+      grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+      grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+
+      grid.innerHTML = '';
+      activeTitles.forEach(title => {
+        const container = document.createElement('div');
+        container.className = 'video-container';
+
+        const channel = allChannels.find(c => c.Title === title || c.TitleEng === title);
+        const url = title === 'ערוץ 14'
+          ? 'https://r.il.cdn-redge.media/livehls/oil/ch14/live/ch14/live.livx/playlist.m3u8'
+          : channel?.StreamUrls.find(u => !u.includes('@'));
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'remove-btn';
+        removeBtn.innerHTML = '×';
+        removeBtn.onclick = e => {
+          e.stopPropagation();
+          activeTitles = activeTitles.filter(t => t !== title);
+          saveActive();
+          renderGrid();
+        };
+        container.appendChild(removeBtn);
+
+        if (url) {
+          const video = document.createElement('video');
+          video.autoplay = true;
+          video.muted = true;
+          video.playsInline = true;
+          video.controls = true;
+          container.appendChild(video);
+
+          const overlay = document.createElement('div');
+          overlay.className = 'overlay';
+          overlay.textContent = title;
+          container.appendChild(overlay);
+
+          if (Hls.isSupported()) {
+            const hls = new Hls();
+            hls.loadSource(url);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => video.play());
+          } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = url;
+            video.addEventListener('loadedmetadata', () => video.play());
+          }
+        } else {
+          const msg = document.createElement('div');
+          msg.style.color = '#fff';
+          msg.style.textAlign = 'center';
+          msg.textContent = `ערוץ ${title} לא זמין`;
+          container.appendChild(msg);
+        }
+
+        grid.appendChild(container);
+      });
+      saveActive();
+    }
+
+    function renderPanel() {
+      const panel = document.getElementById('panel');
+      panel.innerHTML = '';
+      allChannels.forEach(c => {
+        const item = document.createElement('div');
+        item.className = 'channel-item';
+        const img = document.createElement('img');
+        img.src = c.Logo;
+        item.appendChild(img);
+        const span = document.createElement('span');
+        span.textContent = c.Title;
+        item.appendChild(span);
+        const btn = document.createElement('button');
+        btn.className = 'add-channel-btn';
+        btn.textContent = '+';
+        btn.onclick = e => {
+          e.stopPropagation();
+          if (activeTitles.includes(c.Title)) {
+            showPopup(`ערוץ ${c.Title} כבר פתוח`);
+          } else {
+            activeTitles.push(c.Title);
+            saveActive();
+            renderGrid();
+          }
+        };
+        item.appendChild(btn);
+        panel.appendChild(item);
+      });
+    }
+
+    function showPopup(message) {
+      const pop = document.createElement('div');
+      pop.className = 'popup';
+      pop.textContent = message;
+      document.body.appendChild(pop);
+      requestAnimationFrame(() => {
+        pop.style.opacity = '1';
+      });
+      setTimeout(() => {
+        pop.style.opacity = '0';
+        pop.addEventListener('transitionend', () => pop.remove());
+      }, 1000);
+    }
+
+    document.getElementById('addBtn').onclick = () => {
+      document.getElementById('panel').classList.toggle('open');
+    };
+  </script>
+</body>
+</html>
