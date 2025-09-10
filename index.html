@@ -217,6 +217,7 @@
         container.className = 'video-container';
 
         const channel = allChannels.find(c => c.Title === title || c.TitleEng === title);
+        // Special handling for Channel 14 since it's not in the JSON data
         const url = title === 'ערוץ 14'
           ? 'https://r.il.cdn-redge.media/livehls/oil/ch14/live/ch14/live.livx/playlist.m3u8'
           : channel?.StreamUrls.find(u => !u.includes('@'));
@@ -270,7 +271,35 @@
     function renderPanel() {
       const panel = document.getElementById('panel');
       panel.innerHTML = '';
-      allChannels.forEach(c => {
+      
+      // Create a copy of allChannels array to modify
+      const channelsWith14 = [...allChannels];
+      
+      // Find the index of Reshet 13 to insert Channel 14 after it
+      const reshet13Index = channelsWith14.findIndex(c => c.Title === 'רשת 13');
+      const i24NewsIndex = channelsWith14.findIndex(c => c.Title === 'חדשות איי 24');
+      
+      // Create Channel 14 object
+      const channel14 = {
+        Title: 'ערוץ 14',
+        TitleEng: 'Channel 14',
+        Logo: 'https://www.c14.co.il/static/icons/c14.png',
+        StreamUrls: ['https://r.il.cdn-redge.media/livehls/oil/ch14/live/ch14/live.livx/playlist.m3u8']
+      };
+      
+      // Insert Channel 14 after Reshet 13 and before i24 News
+      if (reshet13Index !== -1) {
+        // Insert after Reshet 13
+        channelsWith14.splice(reshet13Index + 1, 0, channel14);
+      } else if (i24NewsIndex !== -1) {
+        // If Reshet 13 not found but i24 News is found, insert before i24 News
+        channelsWith14.splice(i24NewsIndex, 0, channel14);
+      } else {
+        // If neither found, add at the end
+        channelsWith14.push(channel14);
+      }
+      
+      channelsWith14.forEach(c => {
         const item = document.createElement('div');
         item.className = 'channel-item';
         const img = document.createElement('img');
