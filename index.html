@@ -59,24 +59,34 @@
       line-height: 22px;
       cursor: pointer;
       z-index: 5;
+      opacity: 0.55;
+      transition: opacity 0.3s ease;
     }
-    /* Add Button */
+    
+    .remove-btn:hover {
+      opacity: 1;
+    }
+    /* Add Button (slide-out) */
     #addBtn {
-      position: absolute;
+      position: fixed;
       top: 8px;
-      right: 8px;
+      right: -80px;
       background: #00aaff;
       border: none;
       color: #fff;
       padding: 8px 12px;
       font-size: 1em;
-      border-radius: 4px;
+      border-radius: 4px 0 0 4px;
       cursor: pointer;
       z-index: 10;
+      transition: right 0.3s ease;
+    }
+    #addBtn:hover {
+      right: 0;
     }
     /* Side Panel */
     #panel {
-      position: absolute;
+      position: fixed;
       top: 0;
       right: -300px;
       width: 300px;
@@ -91,6 +101,25 @@
     }
     #panel.open {
       right: 0;
+    }
+    /* Close button when panel is open */
+    #addBtn.panel-open {
+      right: calc(300px - 40px) !important;
+      background: #ff3333;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      font-size: 1.2em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.75;
+      transition: opacity 0.3s ease;
+    }
+    
+    #addBtn.panel-open:hover {
+      opacity: 1;
     }
     .channel-item {
       display: flex;
@@ -283,7 +312,18 @@
     }
 
     document.getElementById('addBtn').onclick = () => {
-      document.getElementById('panel').classList.toggle('open');
+      const panel = document.getElementById('panel');
+      const addBtn = document.getElementById('addBtn');
+      panel.classList.toggle('open');
+      
+      // Change button text and style based on panel state
+      if (panel.classList.contains('open')) {
+        addBtn.textContent = '×';
+        addBtn.classList.add('panel-open');
+      } else {
+        addBtn.textContent = '+ הוסף ערוץ';
+        addBtn.classList.remove('panel-open');
+      }
     };
   </script>
 </body>
