@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>מסכי סטרים חיים - Multiview</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+    }
+
+    /* Grid Layout */
+    #grid {
+      display: grid;
+      gap: 4px;
+      padding: 4px;
+      box-sizing: border-box;
+      width: 100%;
+      height: 100%;
+      transition: all 0.3s ease;
+    }
+    
+    .video-container {
+      position: relative;
+      background: #111;
+      overflow: hidden;
+      border: 1px solid #333;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    
+    .overlay {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.7);
+      color: #fff;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      pointer-events: none;
+      text-shadow: 0 1px 2px black;
+      z-index: 2;
+    }
+    
+    .remove-btn {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(200, 0, 0, 0.8); /* חיזקתי מעט את הצבע */
+      border: none;
+      color: #fff;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      font-size: 20px;
+      line-height: 28px;
+      cursor: pointer;
+      z-index: 20; /* הגדלתי את ה-Z-Index ליתר ביטחון */
+      display: none; 
+    }
+    
+    .video-container:hover .remove-btn {
+      display: block;
+    }
+
+    /* --- Add Button --- */
+    #addBtn {
+      position: fixed;
+      top: 15px;
+      right: 15px;
+      background: #00aaff;
+      color: white;
+      border: none;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      font-size: 30px;
+      cursor: pointer;
+      z-index: 100;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+      transform: scale(1) rotate(0deg);
+      opacity: 1;
+    }
+    
+    #addBtn:hover {
+      background: #0088cc;
+      transform: scale(1.1);
+    }
+
+    #addBtn.hidden {
+      transform: scale(0) rotate(-180deg);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* --- Side Panel --- */
+    #panel {
+      position: fixed;
+      top: 0;
+      right: -320px;
+      width: 300px;
+      height: 100%;
+      background: #1a1a1a;
+      box-shadow: -5px 0 15px rgba(0,0,0,0.7);
+      transition: right 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+      padding: 16px;
+      box-sizing: border-box;
+      overflow-y: auto;
+      z-index: 99;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    #panel.open {
+      right: 0;
+    }
+    
+    .panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        border-bottom: 1px solid #333;
+        padding-bottom: 10px;
+    }
+
+    .close-panel-btn {
+        background: transparent;
+        border: none;
+        color: #fff;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 5px;
+        transition: color 0.2s;
+    }
+    .close-panel-btn:hover {
+        color: #ff4444;
+    }
+
+    .channel-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+      padding: 8px;
+      background: #2a2a2c;
+      border-radius: 8px;
+      transition: background 0.2s;
+      gap: 15px;
+    }
+    
+    .channel-item:hover {
+        background: #3a3a3c;
+    }
+    
+    .channel-item img {
+      width: 40px;
+      height: 40px;
+      object-fit: contain;
+      background: #000;
+      border-radius: 4px;
+    }
+    
+    .channel-item span {
+      flex: 1;
+      color: #fff;
+      font-weight: bold;
+      font-size: 0.95rem;
+    }
+    
+    .add-channel-btn {
+      background: #00ff66;
+      border: none;
+      color: #000;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    
+    /* Popup Notification */
+    .popup {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 30px;
+      font-size: 1rem;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: 200;
+      pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Controls -->
+  <button id="addBtn" title="הוסף ערוץ">+</button>
+  
+  <!-- Panel -->
+  <div id="panel">
+    <div class="panel-header">
+        <h3 style="color:white; margin:0;">רשימת ערוצים</h3>
+        <button class="close-panel-btn">✕</button>
+    </div>
+    <div id="channelList"></div>
+  </div>
+
+  <!-- Main Grid -->
+  <div id="grid"></div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <script>
+    const PRIMARY_URL = 'https://raw.githubusercontent.com/RokuIL/Live-From-Israel/refs/heads/master/Channels.json';
+    const FALLBACK_URL = 'https://raw.githubusercontent.com/noeyefish/test/refs/heads/main/channels.json';
+
+    let allChannels = [];
+    let activeTitles = [];
+    const hlsInstances = {}; 
+
+    // טעינה מ-LocalStorage
+    const stored = localStorage.getItem('activeTitles');
+    if (stored) {
+      try { activeTitles = JSON.parse(stored); } 
+      catch { activeTitles = ['כאן 11', 'קשת 12', 'רשת 13', 'ערוץ 14']; }
+    } else {
+      activeTitles = ['כאן 11', 'קשת 12', 'רשת 13', 'ערוץ 14'];
+    }
+
+    function saveActive() {
+      localStorage.setItem('activeTitles', JSON.stringify(activeTitles));
+    }
+
+    function cleanupHls(title) {
+        if (hlsInstances[title]) {
+            hlsInstances[title].destroy();
+            delete hlsInstances[title];
+        }
+    }
+
+    async function init() {
+        try {
+            let data;
+            try {
+                const res = await fetch(PRIMARY_URL);
+                if (!res.ok) throw new Error('Primary failed');
+                data = await res.json();
+            } catch (e) {
+                console.warn('Switching to fallback URL');
+                const res = await fetch(FALLBACK_URL);
+                data = await res.json();
+            }
+            allChannels = data.Channels || [];
+
+            // --- לוגיקה למיקום ערוץ 14 אחרי רשת 13 ---
+            const ch14Data = {
+                Title: 'ערוץ 14',
+                TitleEng: 'Channel 14',
+                Logo: 'https://www.c14.co.il/static/icons/c14.png',
+                StreamUrls: [] 
+            };
+
+            allChannels = allChannels.filter(c => c.Title !== 'ערוץ 14');
+            const index13 = allChannels.findIndex(c => c.Title === 'רשת 13');
+
+            if (index13 !== -1) {
+                allChannels.splice(index13 + 1, 0, ch14Data);
+            } else {
+                allChannels.push(ch14Data);
+            }
+            
+            renderGrid();
+            renderPanel();
+        } catch (e) {
+            console.error(e);
+            showPopup("שגיאה בטעינת הערוצים");
+        }
+    }
+
+    function renderGrid() {
+      const grid = document.getElementById('grid');
+      const n = activeTitles.length;
+
+      if (n === 0) {
+          grid.innerHTML = '<div style="color:white; display:flex; justify-content:center; align-items:center; height:100%; width:100%; font-size:1.2em;">אין ערוצים פעילים. לחץ על + להוספה</div>';
+          grid.style.display = 'flex';
+          return;
+      } else {
+          grid.style.display = 'grid';
+      }
+
+      const cols = Math.ceil(Math.sqrt(n));
+      const rows = Math.ceil(n / cols);
+      grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+      grid.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+
+      Array.from(grid.children).forEach(el => {
+        if (!el.dataset.title || !activeTitles.includes(el.dataset.title)) {
+            if (el.dataset.title) cleanupHls(el.dataset.title);
+            el.remove();
+        }
+      });
+
+      activeTitles.forEach(title => {
+        if (grid.querySelector(`.video-container[data-title="${title}"]`)) return;
+
+        const container = document.createElement('div');
+        container.className = 'video-container';
+        container.dataset.title = title;
+
+        const channel = allChannels.find(c => c.Title === title || c.TitleEng === title);
+        let url = channel?.StreamUrls ? channel.StreamUrls.find(u => !u.includes('@')) : null;
+        
+        if (title === 'ערוץ 14') {
+             url = 'https://r.il.cdn-redge.media/livehls/oil/ch14/live/ch14/live.livx/playlist.m3u8';
+        }
+
+        // יצירת הכפתור (אך לא הוספתו ל-DOM עדיין)
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'remove-btn';
+        removeBtn.innerHTML = '×';
+        removeBtn.onclick = e => {
+          e.stopPropagation();
+          activeTitles = activeTitles.filter(t => t !== title);
+          saveActive();
+          renderGrid();
+        };
+
+        if (url) {
+          const video = document.createElement('video');
+          video.autoplay = true;
+          video.muted = true;
+          video.playsInline = true;
+          video.controls = true;
+
+          video.addEventListener('volumechange', () => {
+              if (!video.muted && !video.paused) {
+                  document.querySelectorAll('video').forEach(v => {
+                      if (v !== video) v.muted = true;
+                  });
+              }
+          });
+
+          container.appendChild(video);
+
+          const overlay = document.createElement('div');
+          overlay.className = 'overlay';
+          overlay.textContent = title;
+          container.appendChild(overlay);
+
+          if (Hls.isSupported()) {
+            const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+            hls.loadSource(url);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(e => {}));
+            hlsInstances[title] = hls;
+          } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = url;
+            video.addEventListener('loadedmetadata', () => video.play());
+          }
+        } else {
+            container.innerHTML += `<div style="color:#aaa;">${title} לא זמין</div>`;
+        }
+
+        // --- תיקון: הוספת הכפתור בסוף, אחרי הוידאו וה-Overlay ---
+        container.appendChild(removeBtn);
+
+        grid.appendChild(container);
+      });
+    }
+
+    function renderPanel() {
+      const list = document.getElementById('channelList');
+      list.innerHTML = '';
+      allChannels.forEach(c => {
+        const item = document.createElement('div');
+        item.className = 'channel-item';
+        
+        const img = document.createElement('img');
+        img.src = c.Logo || '';
+        img.onerror = function() { this.style.display='none'; };
+        item.appendChild(img);
+        
+        const span = document.createElement('span');
+        span.textContent = c.Title;
+        item.appendChild(span);
+        
+        const btn = document.createElement('button');
+        btn.className = 'add-channel-btn';
+        btn.textContent = '+';
+        btn.onclick = () => {
+          if (!activeTitles.includes(c.Title)) {
+            activeTitles.push(c.Title);
+            saveActive();
+            renderGrid();
+            showPopup(`ערוץ ${c.Title} נוסף`);
+          } else {
+            showPopup("הערוץ כבר קיים");
+          }
+        };
+        item.appendChild(btn);
+        list.appendChild(item);
+      });
+    }
+
+    function showPopup(message) {
+      const existing = document.querySelector('.popup');
+      if (existing) existing.remove();
+
+      const pop = document.createElement('div');
+      pop.className = 'popup';
+      pop.textContent = message;
+      document.body.appendChild(pop);
+      
+      requestAnimationFrame(() => pop.style.opacity = '1');
+      setTimeout(() => {
+        pop.style.opacity = '0';
+        pop.addEventListener('transitionend', () => pop.remove());
+      }, 2000);
+    }
+
+    function togglePanel(show) {
+      const panel = document.getElementById('panel');
+      const addBtn = document.getElementById('addBtn');
+      
+      if (show) {
+        panel.classList.add('open');
+        addBtn.classList.add('hidden'); 
+      } else {
+        panel.classList.remove('open');
+        addBtn.classList.remove('hidden');
+      }
+    }
+
+    document.getElementById('addBtn').onclick = () => togglePanel(true);
+    document.querySelector('.close-panel-btn').onclick = () => togglePanel(false);
+
+    init();
+  </script>
+</body>
+</html>
