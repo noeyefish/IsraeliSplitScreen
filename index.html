@@ -54,6 +54,10 @@
       object-fit: contain;
     }
 
+    body.is-fullscreen .video-container {
+      cursor: default;
+    }
+
     .overlay {
       position: absolute;
       bottom: 10px;
@@ -318,11 +322,20 @@
         const srcIndex = activeTitles.indexOf(srcTitle);
         const destIndex = activeTitles.indexOf(destTitle);
 
-        activeTitles.splice(srcIndex, 1);
-        activeTitles.splice(destIndex, 0, srcTitle);
+        if (srcIndex !== -1 && destIndex !== -1) {
+          // Swap positions in the array instead of shifting everything
+          const temp = activeTitles[srcIndex];
+          activeTitles[srcIndex] = activeTitles[destIndex];
+          activeTitles[destIndex] = temp;
 
-        saveActive();
-        renderGrid();
+          saveActive();
+
+          // Re-assign CSS order property based on the newly sorted array
+          activeTitles.forEach((t, index) => {
+            const el = document.querySelector(`.video-container[data-title="${t}"]`);
+            if (el) el.style.order = index;
+          });
+        }
       }
       return false;
     }
@@ -397,10 +410,10 @@
         }
       });
 
-      activeTitles.forEach(title => {
+      activeTitles.forEach((title, index) => {
         let container = grid.querySelector(`.video-container[data-title="${title}"]`);
         if (container) {
-          grid.appendChild(container); // Reorder existing items
+          container.style.order = index;
           return;
         }
 
@@ -408,6 +421,7 @@
         container.className = 'video-container';
         container.dataset.title = title;
         container.draggable = true;
+        container.style.order = index;
 
         container.addEventListener('dragstart', handleDragStart);
         container.addEventListener('dragover', handleDragOver);
@@ -452,6 +466,15 @@
               document.querySelectorAll('video').forEach(v => {
                 if (v !== video) v.muted = true;
               });
+            }
+          });
+
+          // Disable dragging when entering fullscreen
+          video.addEventListener('fullscreenchange', () => {
+            if (document.fullscreenElement === video) {
+              container.draggable = false;
+            } else {
+              container.draggable = true;
             }
           });
 
@@ -548,6 +571,15 @@
 
     document.getElementById('addBtn').onclick = () => togglePanel(true);
     document.querySelector('.close-panel-btn').onclick = () => togglePanel(false);
+
+    // --- Fullscreen state check to disable visual cursor ---
+    document.addEventListener('fullscreenchange', () => {
+      if (document.fullscreenElement) {
+        document.body.classList.add('is-fullscreen');
+      } else {
+        document.body.classList.remove('is-fullscreen');
+      }
+    });
 
     init();
   </script>
