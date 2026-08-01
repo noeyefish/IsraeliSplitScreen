@@ -4,7 +4,6 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
   <title>מסכי סטרים חיים - Multiview</title>
   <style>
     body,
@@ -433,6 +432,9 @@
 
         const channel = allChannels.find(c => c.Title === title || c.TitleEng === title);
         let url = channel?.StreamUrls ? channel.StreamUrls.find(u => !u.includes('@')) : null;
+        if (url && url.startsWith('http://')) {
+          url = url.replace('http://', 'https://');
+        }
 
         if (title === 'ערוץ 14') {
           url = 'https://r.il.cdn-redge.media/livehls/oil/ch14/live/ch14/live.livx/playlist.m3u8';
